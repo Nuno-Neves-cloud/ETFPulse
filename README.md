@@ -31,6 +31,28 @@ This starts the development server and is only needed while developing. The inst
 
 Standalone builds include the React Native app in a normal installable app package. After installation, launch Daymark from the phone like any other app. It fetches prices directly from Nasdaq, so the phone needs an internet connection, but does not need a development server.
 
+### Build and run from Xcode
+
+On a Mac with the full Xcode app installed:
+
+1. Install Xcode from the Mac App Store, open it once, accept its license, and install its iOS platform components. In Xcode, add your Apple Account under **Settings → Accounts**. Under **Settings → Locations → Command Line Tools**, select the installed Xcode version.
+2. From the project folder, install JavaScript dependencies and generate the native iOS project:
+   ```sh
+   npm install
+   npm run prebuild:ios
+   ```
+   This runs Expo Prebuild to generate `ios/` and install iOS pods. If CocoaPods is not installed, install it first (for example, with `brew install cocoapods`). The generated folder is intentionally ignored by Git; rerun Prebuild after changing native app configuration or dependencies.
+3. Open the generated CocoaPods workspace:
+   ```sh
+   open ios/Daymark.xcworkspace
+   ```
+4. In Xcode, select the **Daymark** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The configured bundle identifier is `com.marketinvestor.daymark`; change it in `app.json` if you need an identifier you own.
+5. Connect and select your iPhone as the run destination, then choose **Product → Run** to build, sign, and install.
+
+Xcode's normal Debug run uses Metro to serve JavaScript. To install a build that runs without Metro, choose the app's **Release** configuration when building. For an installable release/archive on a physical iPhone, Apple signing and provisioning apply; App Store or TestFlight distribution requires Apple Developer Program membership. A free Personal Team is suitable for on-device development, but its provisioning is limited and must be renewed periodically.
+
+If Prebuild reports that CocoaPods or Xcode is missing, install the full Xcode app and CocoaPods, then rerun `npm run prebuild:ios`.
+
 ### Android phone (APK)
 
 1. Create a free account at [expo.dev](https://expo.dev/signup) and sign in:
