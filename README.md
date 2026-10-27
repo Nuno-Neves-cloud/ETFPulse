@@ -16,7 +16,7 @@ It shows the latest available daily close, earlier closing prices and percentage
    - **4:** greater than +0.5% and less than +2%
    - **5:** +2% or more
 
-Daily price history is requested from Nasdaq's public ETF historical-prices endpoint. Prices are closing values, not a live quote. The app reports data errors instead of inventing a price or score. Use **Edit list** on the market snapshot to search Nasdaq's ETF directory by ticker or name, choose up to 20 funds, and show them together. SPY and EEM are selected initially; the watchlist is saved on the device. Nasdaq's directory is cached for 24 hours and can be refreshed from the picker.
+Daily price history is requested from Nasdaq's public ETF historical-prices endpoint. Prices are closing values, not a live quote. The app reports data errors instead of inventing a price or score. Use **Edit list** on the market snapshot to search Nasdaq's ETF directory by ticker or name, choose up to 20 funds, and show them together. The picker shows each fund name first, followed by its ticker and U.S. dollar listing details. European listings and fund attributes such as UCITS status or share class are not available in this directory. SPY and EEM are selected initially; the watchlist is saved on the device. Nasdaq's directory is cached for 24 hours and can be refreshed from the picker.
 
 ## Run the app during development
 

@@ -99,10 +99,12 @@ function FundCard({
             <Text style={styles.tickerMarkText}>{fund.symbol.slice(0, 1)}</Text>
           </View>
           <View style={styles.fundTitleWrap}>
-            <Text style={styles.fundName}>{fund.name}</Text>
+            <Text style={styles.fundName} numberOfLines={2}>
+              {fund.name}
+            </Text>
+            <Text style={styles.fundDetails}>{fund.symbol} · U.S.-listed · USD</Text>
           </View>
         </View>
-        <Text style={styles.ticker}>{fund.symbol}</Text>
       </View>
 
       {snapshot ? (
@@ -147,7 +149,7 @@ function FundCard({
           {error ? (
             <Text style={styles.errorText}>{error}</Text>
           ) : (
-            <ActivityIndicator color="#176B52" />
+            <ActivityIndicator color="#2463A6" />
           )}
         </View>
       )}
@@ -328,8 +330,8 @@ export default function App() {
           <RefreshControl
             refreshing={loading}
             onRefresh={loadPrices}
-            tintColor="#D7F0E3"
-            colors={['#176B52']}
+            tintColor="#DFECFA"
+            colors={['#2463A6']}
           />
         }
       >
@@ -438,8 +440,8 @@ export default function App() {
                 { score: '1', label: '≤ −2%', color: '#C65A4D' },
                 { score: '2', label: '>−2 to <−0.5%', color: '#D99271' },
                 { score: '3', label: '−0.5% to +0.5%', color: '#A9A98A' },
-                { score: '4', label: '>+0.5 to <+2%', color: '#67A786' },
-                { score: '5', label: '≥ +2%', color: '#278260' },
+                { score: '4', label: '>+0.5 to <+2%', color: '#4C8BCC' },
+                { score: '5', label: '≥ +2%', color: '#2463A6' },
               ].map((item) => (
                 <View key={item.score} style={styles.scaleItem}>
                   <View style={[styles.scaleDot, { backgroundColor: item.color }]}>
@@ -540,7 +542,7 @@ export default function App() {
 
             {directoryLoading ? (
               <View style={styles.directoryMessage}>
-                <ActivityIndicator color="#176B52" size="large" />
+                <ActivityIndicator color="#2463A6" size="large" />
                 <Text style={styles.directoryMessageTitle}>Loading ETF listings</Text>
                 <Text style={styles.directoryMessageBody}>
                   Page {directoryProgress.loaded} of {directoryProgress.total}
@@ -590,9 +592,11 @@ export default function App() {
                       ]}
                     >
                       <View style={styles.fundOptionText}>
-                        <Text style={styles.optionSymbol}>{item.symbol}</Text>
                         <Text style={styles.optionName} numberOfLines={2}>
                           {item.name}
+                        </Text>
+                        <Text style={styles.optionSymbol}>
+                          {item.symbol} · U.S.-listed · USD
                         </Text>
                       </View>
                       <View style={[styles.checkMark, selected && styles.checkMarkSelected]}>
@@ -637,14 +641,14 @@ export default function App() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#113E34',
+    backgroundColor: '#123B70',
   },
   scrollContent: {
     flexGrow: 1,
-    backgroundColor: '#F3F5F1',
+    backgroundColor: '#F4F8FD',
   },
   hero: {
-    backgroundColor: '#113E34',
+    backgroundColor: '#123B70',
     paddingHorizontal: 24,
     paddingTop: 14,
     paddingBottom: 30,
@@ -666,10 +670,10 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#9BDBB3',
+    backgroundColor: '#A8C9F0',
   },
   brandName: {
-    color: '#F1F6EF',
+    color: '#F8FBFF',
     fontSize: 13,
     letterSpacing: 2.3,
     fontWeight: '800',
@@ -678,7 +682,7 @@ const styles = StyleSheet.create({
     height: 35,
     paddingHorizontal: 12,
     borderRadius: 18,
-    borderColor: '#476C5F',
+    borderColor: '#5579A4',
     borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
@@ -688,32 +692,32 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   refreshIcon: {
-    color: '#D7F0E3',
+    color: '#DFECFA',
     fontSize: 17,
     lineHeight: 19,
   },
   refreshText: {
-    color: '#D7F0E3',
+    color: '#DFECFA',
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: '700',
   },
   eyebrow: {
-    color: '#9BDBB3',
+    color: '#A8C9F0',
     fontSize: 10,
     letterSpacing: 2,
     fontWeight: '700',
     marginBottom: 12,
   },
   heroTitle: {
-    color: '#F1F6EF',
+    color: '#F8FBFF',
     fontSize: 37,
     lineHeight: 42,
     letterSpacing: -1,
     fontWeight: '700',
   },
   heroDescription: {
-    color: '#C2D2C7',
+    color: '#CAD8E8',
     fontSize: 14,
     lineHeight: 21,
     marginTop: 12,
@@ -727,17 +731,17 @@ const styles = StyleSheet.create({
     marginTop: 19,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    backgroundColor: '#1D5043',
+    backgroundColor: '#1A4D85',
     borderRadius: 15,
   },
   liveDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#9BDBB3',
+    backgroundColor: '#A8C9F0',
   },
   liveText: {
-    color: '#D4E6DA',
+    color: '#DFECFA',
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: '700',
@@ -754,20 +758,20 @@ const styles = StyleSheet.create({
     marginBottom: 13,
   },
   sectionEyebrow: {
-    color: '#718078',
+    color: '#6E7F94',
     fontSize: 9,
     letterSpacing: 1.7,
     fontWeight: '700',
     marginBottom: 4,
   },
   sectionTitle: {
-    color: '#1F3029',
+    color: '#1E3048',
     fontSize: 21,
     letterSpacing: -0.4,
     fontWeight: '700',
   },
   sectionCount: {
-    color: '#7F8B83',
+    color: '#718198',
     fontSize: 9,
     letterSpacing: 1,
     fontWeight: '700',
@@ -781,10 +785,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 12,
-    backgroundColor: '#E4EEE6',
+    backgroundColor: '#E5EFFA',
   },
   manageButtonText: {
-    color: '#276343',
+    color: '#245B96',
     fontSize: 9,
     letterSpacing: 0.8,
     fontWeight: '800',
@@ -795,7 +799,7 @@ const styles = StyleSheet.create({
     padding: 17,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#E8ECE6',
+    borderColor: '#E3EAF3',
   },
   fundHeader: {
     flexDirection: 'row',
@@ -811,16 +815,16 @@ const styles = StyleSheet.create({
     width: 39,
     height: 39,
     borderRadius: 13,
-    backgroundColor: '#E5F2EB',
+    backgroundColor: '#E4EFFB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 11,
   },
   emMark: {
-    backgroundColor: '#F3EDE2',
+    backgroundColor: '#EAF1F8',
   },
   tickerMarkText: {
-    color: '#176B52',
+    color: '#2463A6',
     fontSize: 17,
     fontWeight: '800',
   },
@@ -828,16 +832,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   fundName: {
-    color: '#26362F',
+    color: '#26384F',
     fontSize: 15,
     fontWeight: '700',
   },
-  ticker: {
-    color: '#728078',
+  fundDetails: {
+    color: '#60758F',
     fontSize: 10,
-    fontWeight: '700',
-    letterSpacing: 1,
-    marginLeft: 5,
+    marginTop: 4,
   },
   priceRow: {
     flexDirection: 'row',
@@ -846,7 +848,7 @@ const styles = StyleSheet.create({
     marginTop: 19,
   },
   price: {
-    color: '#172D24',
+    color: '#172D46',
     fontSize: 30,
     letterSpacing: -1,
     fontWeight: '700',
@@ -862,21 +864,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   scorePositive: {
-    backgroundColor: '#E2F2E8',
+    backgroundColor: '#E4EFFB',
   },
   scoreNeutral: {
-    backgroundColor: '#F0F0E6',
+    backgroundColor: '#EBF2FA',
   },
   scoreNegative: {
     backgroundColor: '#F8E9E5',
   },
   scoreNumber: {
-    color: '#225C43',
+    color: '#245B96',
     fontSize: 22,
     fontWeight: '800',
   },
   scoreOutOf: {
-    color: '#6D7F73',
+    color: '#687B93',
     fontSize: 10,
     fontWeight: '600',
     marginTop: 6,
@@ -888,14 +890,14 @@ const styles = StyleSheet.create({
     marginTop: 3,
   },
   signal: {
-    color: '#3D5146',
+    color: '#3E536E',
     fontSize: 12,
     fontWeight: '600',
     marginTop: 12,
   },
   divider: {
     height: 1,
-    backgroundColor: '#EEF0EC',
+    backgroundColor: '#E8EEF6',
     marginVertical: 14,
   },
   performanceHeader: {
@@ -905,13 +907,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   performanceTitle: {
-    color: '#818D85',
+    color: '#718198',
     fontSize: 9,
     letterSpacing: 1.1,
     fontWeight: '700',
   },
   performanceBasis: {
-    color: '#A0A9A3',
+    color: '#8795A8',
     fontSize: 9,
   },
   trendRow: {
@@ -921,13 +923,13 @@ const styles = StyleSheet.create({
   trendCell: {
     flex: 1,
     minHeight: 51,
-    backgroundColor: '#F6F8F5',
+    backgroundColor: '#F3F7FC',
     borderRadius: 11,
     paddingHorizontal: 9,
     paddingVertical: 8,
   },
   trendPeriod: {
-    color: '#8A968E',
+    color: '#718198',
     fontSize: 8,
     fontWeight: '600',
   },
@@ -938,13 +940,13 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   trendReference: {
-    color: '#87928B',
+    color: '#718198',
     fontSize: 8,
     marginTop: 3,
     fontVariant: ['tabular-nums'],
   },
   positive: {
-    color: '#25805A',
+    color: '#2463A6',
   },
   negative: {
     color: '#BE5B4C',
@@ -974,11 +976,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 17,
     borderWidth: 1,
-    borderColor: '#E8ECE6',
+    borderColor: '#E3EAF3',
     marginBottom: 14,
   },
   emptyTitle: {
-    color: '#26362F',
+    color: '#26384F',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -996,7 +998,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   methodCard: {
-    backgroundColor: '#E8EEE8',
+    backgroundColor: '#E7EFF9',
     borderRadius: 18,
     padding: 17,
     marginTop: 3,
@@ -1010,23 +1012,23 @@ const styles = StyleSheet.create({
     width: 19,
     height: 19,
     borderRadius: 10,
-    backgroundColor: '#D3E4D7',
+    backgroundColor: '#D7E5F6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,
   },
   methodIconText: {
-    color: '#276343',
+    color: '#245B96',
     fontSize: 12,
     fontWeight: '800',
   },
   methodTitle: {
-    color: '#294136',
+    color: '#29415F',
     fontSize: 13,
     fontWeight: '700',
   },
   methodBody: {
-    color: '#66796C',
+    color: '#667B96',
     fontSize: 11,
     lineHeight: 17,
   },
@@ -1042,7 +1044,7 @@ const styles = StyleSheet.create({
     left: 8,
     right: 8,
     height: 1,
-    backgroundColor: '#C4D2C6',
+    backgroundColor: '#C4D4E8',
   },
   scaleItem: {
     width: '19%',
@@ -1052,7 +1054,7 @@ const styles = StyleSheet.create({
     width: 25,
     height: 25,
     borderRadius: 13,
-    borderColor: '#E8EEE8',
+    borderColor: '#E7EFF9',
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1064,7 +1066,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   scaleLabel: {
-    color: '#78867B',
+    color: '#6D8099',
     textAlign: 'center',
     fontSize: 8,
     lineHeight: 11,
@@ -1093,7 +1095,7 @@ const styles = StyleSheet.create({
   },
   pickerSafeArea: {
     flex: 1,
-    backgroundColor: '#F3F5F1',
+    backgroundColor: '#F4F8FD',
   },
   pickerContainer: {
     flex: 1,
@@ -1106,14 +1108,14 @@ const styles = StyleSheet.create({
     paddingTop: 15,
   },
   pickerEyebrow: {
-    color: '#718078',
+    color: '#6E7F94',
     fontSize: 9,
     letterSpacing: 1.6,
     fontWeight: '700',
     marginBottom: 5,
   },
   pickerTitle: {
-    color: '#1F3029',
+    color: '#1E3048',
     fontSize: 24,
     letterSpacing: -0.5,
     fontWeight: '700',
@@ -1122,18 +1124,18 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#E7ECE6',
+    backgroundColor: '#E7EFF9',
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
-    color: '#53655A',
+    color: '#536A88',
     fontSize: 25,
     lineHeight: 29,
     fontWeight: '400',
   },
   pickerSubtitle: {
-    color: '#76847A',
+    color: '#687C95',
     fontSize: 12,
     lineHeight: 17,
     marginTop: 8,
@@ -1145,19 +1147,19 @@ const styles = StyleSheet.create({
     marginTop: 17,
     paddingHorizontal: 13,
     borderWidth: 1,
-    borderColor: '#E0E7DF',
+    borderColor: '#DCE6F2',
     borderRadius: 13,
     backgroundColor: '#FFFFFF',
   },
   searchIcon: {
-    color: '#75877A',
+    color: '#607895',
     fontSize: 22,
     lineHeight: 25,
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    color: '#26362F',
+    color: '#26384F',
     fontSize: 13,
     paddingVertical: 0,
   },
@@ -1168,7 +1170,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   clearSearchText: {
-    color: '#78867B',
+    color: '#6D8099',
     fontSize: 20,
   },
   pickerListHeader: {
@@ -1179,13 +1181,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   pickerListCount: {
-    color: '#7C8980',
+    color: '#718198',
     fontSize: 9,
     letterSpacing: 0.9,
     fontWeight: '700',
   },
   reloadText: {
-    color: '#287351',
+    color: '#2463A6',
     fontSize: 9,
     letterSpacing: 0.8,
     fontWeight: '700',
@@ -1206,41 +1208,42 @@ const styles = StyleSheet.create({
     marginBottom: 7,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: '#E7ECE6',
+    borderColor: '#E3EAF3',
     backgroundColor: '#FFFFFF',
   },
   fundOptionSelected: {
-    borderColor: '#9FCBB0',
-    backgroundColor: '#F0F7F1',
+    borderColor: '#ABC9EA',
+    backgroundColor: '#EEF5FD',
   },
   fundOptionText: {
     flex: 1,
     paddingRight: 12,
   },
   optionSymbol: {
-    color: '#263B30',
-    fontSize: 12,
+    color: '#60758F',
+    fontSize: 10,
     letterSpacing: 0.7,
-    fontWeight: '800',
+    fontWeight: '700',
+    marginTop: 4,
   },
   optionName: {
-    color: '#77857B',
-    fontSize: 10,
-    lineHeight: 14,
-    marginTop: 3,
+    color: '#263B56',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
   },
   checkMark: {
     width: 23,
     height: 23,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#CCD8CE',
+    borderColor: '#CAD7E7',
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkMarkSelected: {
-    backgroundColor: '#287351',
-    borderColor: '#287351',
+    backgroundColor: '#2463A6',
+    borderColor: '#2463A6',
   },
   checkMarkText: {
     color: '#FFFFFF',
@@ -1255,25 +1258,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
   },
   directoryMessageTitle: {
-    color: '#385247',
+    color: '#385777',
     fontSize: 14,
     fontWeight: '700',
     marginTop: 13,
   },
   directoryMessageBody: {
-    color: '#87938A',
+    color: '#718198',
     fontSize: 11,
     marginTop: 5,
   },
   retryButton: {
-    backgroundColor: '#E2EFE5',
+    backgroundColor: '#E7F0FB',
     paddingHorizontal: 15,
     paddingVertical: 9,
     borderRadius: 12,
     marginTop: 14,
   },
   retryButtonText: {
-    color: '#276343',
+    color: '#245B96',
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -1285,7 +1288,7 @@ const styles = StyleSheet.create({
     padding: 25,
   },
   emptyResults: {
-    color: '#849087',
+    color: '#74839A',
     fontSize: 12,
     textAlign: 'center',
   },
@@ -1300,7 +1303,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingTop: 10,
     paddingBottom: 10,
-    backgroundColor: '#F3F5F1',
+    backgroundColor: '#F4F8FD',
   },
   cancelButton: {
     flex: 1,
@@ -1309,11 +1312,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#DDE4DD',
+    borderColor: '#D7E1EF',
     backgroundColor: '#FFFFFF',
   },
   cancelButtonText: {
-    color: '#65766A',
+    color: '#5D718D',
     fontSize: 10,
     letterSpacing: 0.9,
     fontWeight: '800',
@@ -1324,7 +1327,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 14,
-    backgroundColor: '#176B52',
+    backgroundColor: '#2463A6',
   },
   applyButtonText: {
     color: '#FFFFFF',
