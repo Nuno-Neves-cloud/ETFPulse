@@ -1,7 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 export type ETF = {
   symbol: string;
   name: string;
-  description: string;
+};
+
+type NasdaqETFRow = {
+  symbol?: string;
+  companyName?: string;
+};
+
+type NasdaqETFDirectoryResponse = {
+  data?: {
+    records?: {
+      totalrecords?: number;
+      limit?: number;
+      offset?: number;
+      data?: {
+        rows?: NasdaqETFRow[];
+      };
+    };
+  };
+  message?: string;
 };
 
 type NasdaqHistoricalRow = {
@@ -34,12 +54,151 @@ export type MarketSnapshot = {
 };
 
 const PERIODS = [1, 5, 20] as const;
+const ETF_DIRECTORY_URL = 'https://api.nasdaq.com/api/screener/etf';
+const ETF_DIRECTORY_CACHE_KEY = '@daymark/etf-directory-v1';
+const ETF_DIRECTORY_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
+const ETF_DIRECTORY_PAGE_SIZE = 50;
+const ETF_DIRECTORY_WORKERS = 4;
 
 function dateString(date: Date): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+}
+
+function nasdaqHeaders(): HeadersInit {
+  return {
+    Accept: 'application/json, text/plain, */*',
+    Origin: 'https://www.nasdaq.com',
+    Referer: 'https://www.nasdaq.com/',
+  };
+}
+
+function parseETFDirectoryRows(rows: NasdaqETFRow[]): ETF[] {
+  const fundsBySymbol = new Map<string, ETF>();
+  for (const row of rows) {
+    const symbol = row.symbol?.trim().toUpperCase();
+    const name = row.companyName?.trim();
+    if (symbol && name && !fundsBySymbol.has(symbol)) {
+      fundsBySymbol.set(symbol, { symbol, name });
+    }
+  }
+  return [...fundsBySymbol.values()].sort((left, right) =>
+    left.symbol.localeCompare(right.symbol),
+  );
+}
+
+function isValidETFDirectory(value: unknown): value is ETF[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (fund): fund is ETF =>
+        typeof fund?.symbol === 'string' &&
+        typeof fund?.name === 'string' &&
+        fund.symbol.length > 0 &&
+        fund.name.length > 0,
+    )
+  );
+}
+
+export async function fetchETFDirectory(
+  onProgress?: (loaded: number, total: number) => void,
+  forceRefresh = false,
+): Promise<ETF[]> {
+  if (!forceRefresh) {
+    const cachedValue = await AsyncStorage.getItem(ETF_DIRECTORY_CACHE_KEY);
+    if (cachedValue) {
+      try {
+        const cached = JSON.parse(cachedValue) as {
+          savedAt?: number;
+          funds?: unknown;
+        };
+        if (
+          typeof cached.savedAt === 'number' &&
+          Date.now() - cached.savedAt < ETF_DIRECTORY_CACHE_MAX_AGE &&
+          isValidETFDirectory(cached.funds) &&
+          cached.funds.length > 0
+        ) {
+          onProgress?.(cached.funds.length, cached.funds.length);
+          return cached.funds;
+        }
+      } catch {
+        // A bad cache is replaced by a fresh copy from Nasdaq.
+      }
+    }
+  }
+
+  const headers = nasdaqHeaders();
+  const firstUrl = new URL(ETF_DIRECTORY_URL);
+  firstUrl.searchParams.set('limit', String(ETF_DIRECTORY_PAGE_SIZE));
+  firstUrl.searchParams.set('offset', '0');
+  const firstResponse = await fetch(firstUrl.toString(), { headers });
+  if (!firstResponse.ok) {
+    throw new Error(`Nasdaq ETF directory returned ${firstResponse.status}. Try again.`);
+  }
+
+  const firstPayload = (await firstResponse.json()) as NasdaqETFDirectoryResponse;
+  const records = firstPayload.data?.records;
+  const total = records?.totalrecords;
+  const firstRows = records?.data?.rows;
+  if (
+    typeof total !== 'number' ||
+    !Number.isInteger(total) ||
+    total < 1 ||
+    !firstRows?.length ||
+    records?.offset !== 0
+  ) {
+    throw new Error(firstPayload.message || 'Nasdaq did not return a valid ETF directory.');
+  }
+
+  const totalRecords = total;
+  const pageCount = Math.ceil(totalRecords / ETF_DIRECTORY_PAGE_SIZE);
+  const offsets = Array.from(
+    { length: pageCount - 1 },
+    (_, index) => (index + 1) * ETF_DIRECTORY_PAGE_SIZE,
+  );
+  const rows = [...firstRows];
+  let nextOffsetIndex = 0;
+  let loadedPages = 1;
+  onProgress?.(loadedPages, pageCount);
+
+  const workers = Array.from(
+    { length: Math.min(ETF_DIRECTORY_WORKERS, offsets.length) },
+    async () => {
+      while (nextOffsetIndex < offsets.length) {
+        const offset = offsets[nextOffsetIndex];
+        nextOffsetIndex += 1;
+        const pageUrl = new URL(ETF_DIRECTORY_URL);
+        pageUrl.searchParams.set('limit', String(ETF_DIRECTORY_PAGE_SIZE));
+        pageUrl.searchParams.set('offset', String(offset));
+        const response = await fetch(pageUrl.toString(), { headers });
+        if (!response.ok) {
+          throw new Error(`Nasdaq ETF directory returned ${response.status}. Try again.`);
+        }
+        const payload = (await response.json()) as NasdaqETFDirectoryResponse;
+        const page = payload.data?.records;
+        if (page?.offset !== offset || !page.data?.rows?.length) {
+          throw new Error(`Nasdaq returned an invalid ETF directory page at offset ${offset}.`);
+        }
+        rows.push(...page.data.rows);
+        loadedPages += 1;
+        onProgress?.(loadedPages, pageCount);
+      }
+    },
+  );
+  await Promise.all(workers);
+
+  const funds = parseETFDirectoryRows(rows);
+  if (!funds.some((fund) => fund.symbol === 'SPY') || !funds.some((fund) => fund.symbol === 'EEM')) {
+    throw new Error('Nasdaq returned an incomplete ETF directory. Please refresh and try again.');
+  }
+
+  await AsyncStorage.setItem(
+    ETF_DIRECTORY_CACHE_KEY,
+    JSON.stringify({ savedAt: Date.now(), funds }),
+  );
+  return funds;
 }
 
 function parseClose(value: string): number {
@@ -85,11 +244,7 @@ export async function fetchMarketSnapshot(fund: ETF): Promise<MarketSnapshot> {
   url.searchParams.set('limit', '120');
 
   const response = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json, text/plain, */*',
-      Origin: 'https://www.nasdaq.com',
-      Referer: 'https://www.nasdaq.com/',
-    },
+    headers: nasdaqHeaders(),
   });
   if (!response.ok) {
     throw new Error(`Price service returned ${response.status}. Pull down to try again.`);

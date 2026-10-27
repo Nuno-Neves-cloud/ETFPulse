@@ -1,45 +1,58 @@
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
   Pressable,
   RefreshControl,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {
   ETF,
   MarketSnapshot,
+  fetchETFDirectory,
   fetchMarketSnapshot,
   formatPrice,
   formatReturn,
   getScoreLabel,
 } from './src/marketData';
+import {
+  DEFAULT_FUNDS,
+  loadSavedFunds,
+  MAX_SELECTED_ETFS,
+  saveSelectedFunds,
+} from './src/watchlist';
 
-const FUNDS: ETF[] = [
-  { symbol: 'SPY', name: 'S&P 500', description: 'SPDR S&P 500 ETF' },
-  { symbol: 'EEM', name: 'Emerging markets', description: 'iShares MSCI Emerging Markets ETF' },
-];
-
-async function requestSnapshots(): Promise<{
+async function requestSnapshots(funds: ETF[]): Promise<{
   snapshots: Record<string, MarketSnapshot>;
   errors: Record<string, string>;
 }> {
-  const results = await Promise.all(
-    FUNDS.map(async (fund) => {
-      try {
-        return { symbol: fund.symbol, snapshot: await fetchMarketSnapshot(fund) };
-      } catch (error) {
-        return {
-          symbol: fund.symbol,
-          error: error instanceof Error ? error.message : 'Could not load market prices.',
-        };
-      }
-    }),
-  );
+  const results: Array<
+    | { symbol: string; snapshot: MarketSnapshot }
+    | { symbol: string; error: string }
+  > = [];
+  for (let index = 0; index < funds.length; index += 4) {
+    const batch = await Promise.all(
+      funds.slice(index, index + 4).map(async (fund) => {
+        try {
+          return { symbol: fund.symbol, snapshot: await fetchMarketSnapshot(fund) };
+        } catch (error) {
+          return {
+            symbol: fund.symbol,
+            error: error instanceof Error ? error.message : 'Could not load market prices.',
+          };
+        }
+      }),
+    );
+    results.push(...batch);
+  }
 
   const snapshots: Record<string, MarketSnapshot> = {};
   const errors: Record<string, string> = {};
@@ -82,12 +95,11 @@ function FundCard({
     <View style={styles.fundCard}>
       <View style={styles.fundHeader}>
         <View style={styles.fundIdentity}>
-          <View style={[styles.tickerMark, fund.symbol === 'EEM' && styles.emMark]}>
-            <Text style={styles.tickerMarkText}>{fund.symbol === 'SPY' ? 'S' : 'E'}</Text>
+          <View style={styles.tickerMark}>
+            <Text style={styles.tickerMarkText}>{fund.symbol.slice(0, 1)}</Text>
           </View>
           <View style={styles.fundTitleWrap}>
             <Text style={styles.fundName}>{fund.name}</Text>
-            <Text style={styles.fundDescription}>{fund.description}</Text>
           </View>
         </View>
         <Text style={styles.ticker}>{fund.symbol}</Text>
@@ -144,27 +156,64 @@ function FundCard({
 }
 
 export default function App() {
+  const [selectedFunds, setSelectedFunds] = useState<ETF[]>(DEFAULT_FUNDS);
   const [snapshots, setSnapshots] = useState<Record<string, MarketSnapshot>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const [preferencesError, setPreferencesError] = useState<string | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [directory, setDirectory] = useState<ETF[]>([]);
+  const [directoryLoading, setDirectoryLoading] = useState(false);
+  const [directoryError, setDirectoryError] = useState<string | null>(null);
+  const [directoryProgress, setDirectoryProgress] = useState({ loaded: 0, total: 0 });
+  const [searchText, setSearchText] = useState('');
+  const [draftSymbols, setDraftSymbols] = useState<Set<string>>(new Set());
+  const [selectionError, setSelectionError] = useState<string | null>(null);
+  const priceRequestId = useRef(0);
 
   const loadPrices = useCallback(async () => {
+    const requestId = ++priceRequestId.current;
     setLoading(true);
     setErrors({});
-    const result = await requestSnapshots();
+    const result = await requestSnapshots(selectedFunds);
+    if (requestId !== priceRequestId.current) return;
     setSnapshots(result.snapshots);
     setErrors(result.errors);
     if (Object.keys(result.snapshots).length > 0) {
       setLastUpdated(new Date());
     }
     setLoading(false);
-  }, []);
+  }, [selectedFunds]);
 
   useEffect(() => {
     let active = true;
-    void requestSnapshots().then((result) => {
-      if (!active) return;
+    void loadSavedFunds()
+      .then((funds) => {
+        if (active) setSelectedFunds(funds);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setPreferencesError(
+            error instanceof Error ? error.message : 'Could not load saved ETF selections.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setPreferencesLoaded(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferencesLoaded) return;
+    let active = true;
+    const requestId = ++priceRequestId.current;
+    void requestSnapshots(selectedFunds).then((result) => {
+      if (!active || requestId !== priceRequestId.current) return;
       setSnapshots(result.snapshots);
       setErrors(result.errors);
       if (Object.keys(result.snapshots).length > 0) {
@@ -175,8 +224,99 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [preferencesLoaded, selectedFunds]);
 
+  useEffect(() => {
+    if (!pickerVisible || directory.length > 0) return;
+    let active = true;
+    setDirectoryLoading(true);
+    setDirectoryError(null);
+    void fetchETFDirectory((loaded, total) => {
+      if (active) setDirectoryProgress({ loaded, total });
+    })
+      .then((funds) => {
+        if (active) setDirectory(funds);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setDirectoryError(
+            error instanceof Error ? error.message : 'Could not load the Nasdaq ETF directory.',
+          );
+        }
+      })
+      .finally(() => {
+        if (active) setDirectoryLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [directory.length, pickerVisible]);
+
+  const openPicker = () => {
+    setDraftSymbols(new Set(selectedFunds.map((fund) => fund.symbol)));
+    setSearchText('');
+    setSelectionError(null);
+    setPickerVisible(true);
+  };
+
+  const toggleFund = (fund: ETF) => {
+    setSelectionError(null);
+    const next = new Set(draftSymbols);
+    if (next.has(fund.symbol)) {
+      next.delete(fund.symbol);
+    } else if (next.size >= MAX_SELECTED_ETFS) {
+      setSelectionError(`You can select up to ${MAX_SELECTED_ETFS} ETFs.`);
+      return;
+    } else {
+      next.add(fund.symbol);
+    }
+    setDraftSymbols(next);
+  };
+
+  const applySelection = async () => {
+    const fundsBySymbol = new Map(directory.map((fund) => [fund.symbol, fund]));
+    const funds = [...draftSymbols]
+      .map((symbol) => fundsBySymbol.get(symbol) ?? selectedFunds.find((fund) => fund.symbol === symbol))
+      .filter((fund): fund is ETF => fund !== undefined);
+    try {
+      await saveSelectedFunds(funds);
+      setSelectedFunds(funds);
+      setPreferencesError(null);
+      setPickerVisible(false);
+      setLoading(true);
+    } catch (error) {
+      setSelectionError(
+        error instanceof Error ? error.message : 'Could not save your ETF selections.',
+      );
+    }
+  };
+
+  const refreshDirectory = async () => {
+    setDirectoryLoading(true);
+    setDirectoryError(null);
+    try {
+      const funds = await fetchETFDirectory(
+        (loaded, total) => setDirectoryProgress({ loaded, total }),
+        true,
+      );
+      setDirectory(funds);
+    } catch (error) {
+      setDirectoryError(
+        error instanceof Error ? error.message : 'Could not refresh the Nasdaq ETF directory.',
+      );
+    } finally {
+      setDirectoryLoading(false);
+    }
+  };
+
+  const normalizedSearch = searchText.trim().toLowerCase();
+  const filteredFunds = normalizedSearch
+    ? directory.filter(
+        (fund) =>
+          fund.symbol.toLowerCase().includes(normalizedSearch) ||
+          fund.name.toLowerCase().includes(normalizedSearch),
+      )
+    : directory;
   const hasAnyData = Object.keys(snapshots).length > 0;
 
   return (
@@ -234,10 +374,28 @@ export default function App() {
               <Text style={styles.sectionEyebrow}>YOUR WATCHLIST</Text>
               <Text style={styles.sectionTitle}>Market snapshot</Text>
             </View>
-            <Text style={styles.sectionCount}>02 FUNDS</Text>
+            <View style={styles.watchlistActions}>
+              <Text style={styles.sectionCount}>
+                {selectedFunds.length}/{MAX_SELECTED_ETFS}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={openPicker}
+                style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.manageButtonText}>EDIT LIST</Text>
+              </Pressable>
+            </View>
           </View>
 
-          {FUNDS.map((fund) => (
+          {preferencesError && (
+            <View style={styles.globalError}>
+              <Text style={styles.errorTitle}>Saved selections could not be loaded</Text>
+              <Text style={styles.errorText}>{preferencesError}</Text>
+            </View>
+          )}
+
+          {selectedFunds.map((fund) => (
             <FundCard
               key={fund.symbol}
               fund={fund}
@@ -247,13 +405,20 @@ export default function App() {
           ))}
 
           {!loading && !hasAnyData && (
-            <View style={styles.globalError}>
-              <Text style={styles.errorTitle}>Prices aren’t available right now</Text>
-              <Text style={styles.errorText}>
-                Check your connection and try again. No score is shown when price history cannot be
-                verified.
-              </Text>
-            </View>
+            selectedFunds.length === 0 ? (
+              <View style={styles.emptyWatchlist}>
+                <Text style={styles.emptyTitle}>Your watchlist is empty</Text>
+                <Text style={styles.emptyText}>Choose ETFs to see their price history and scores.</Text>
+              </View>
+            ) : (
+              <View style={styles.globalError}>
+                <Text style={styles.errorTitle}>Prices aren’t available right now</Text>
+                <Text style={styles.errorText}>
+                  Check your connection and try again. No score is shown when price history cannot be
+                  verified.
+                </Text>
+              </View>
+            )
           )}
 
           <View style={styles.methodCard}>
@@ -300,6 +465,171 @@ export default function App() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal
+        visible={pickerVisible}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <SafeAreaView style={styles.pickerSafeArea}>
+          <KeyboardAvoidingView
+            style={styles.pickerContainer}
+            behavior="padding"
+          >
+            <View style={styles.pickerHeader}>
+              <View>
+                <Text style={styles.pickerEyebrow}>NASDAQ ETF DIRECTORY</Text>
+                <Text style={styles.pickerTitle}>Choose your ETFs</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Close ETF picker"
+                onPress={() => setPickerVisible(false)}
+                style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.pickerSubtitle}>
+              Search {directory.length > 0 ? directory.length.toLocaleString() : 'all'} ETFs by name
+              or ticker. Select up to {MAX_SELECTED_ETFS}.
+            </Text>
+
+            <View style={styles.searchBox}>
+              <Text style={styles.searchIcon}>⌕</Text>
+              <TextInput
+                value={searchText}
+                onChangeText={setSearchText}
+                placeholder="Search ETFs or symbols"
+                placeholderTextColor="#99A49C"
+                style={styles.searchInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                returnKeyType="search"
+              />
+              {searchText.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Clear search"
+                  onPress={() => setSearchText('')}
+                  style={styles.clearSearch}
+                >
+                  <Text style={styles.clearSearchText}>×</Text>
+                </Pressable>
+              )}
+            </View>
+
+            <View style={styles.pickerListHeader}>
+              <Text style={styles.pickerListCount}>
+                {draftSymbols.size} SELECTED · {directory.length.toLocaleString()} ETFs
+              </Text>
+              {directory.length > 0 && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={refreshDirectory}
+                  disabled={directoryLoading}
+                >
+                  <Text style={[styles.reloadText, directoryLoading && styles.disabledText]}>
+                    REFRESH LIST
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+
+            {directoryLoading ? (
+              <View style={styles.directoryMessage}>
+                <ActivityIndicator color="#176B52" size="large" />
+                <Text style={styles.directoryMessageTitle}>Loading ETF listings</Text>
+                <Text style={styles.directoryMessageBody}>
+                  Page {directoryProgress.loaded} of {directoryProgress.total}
+                </Text>
+              </View>
+            ) : directoryError ? (
+              <View style={styles.directoryMessage}>
+                <Text style={styles.errorTitle}>Couldn’t load the ETF directory</Text>
+                <Text style={styles.errorText}>{directoryError}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => void refreshDirectory()}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryButtonText}>TRY AGAIN</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredFunds}
+                keyExtractor={(fund) => fund.symbol}
+                keyboardShouldPersistTaps="handled"
+                initialNumToRender={16}
+                maxToRenderPerBatch={20}
+                windowSize={10}
+                contentContainerStyle={
+                  filteredFunds.length === 0 ? styles.emptyResultsContainer : styles.pickerList
+                }
+                ListEmptyComponent={
+                  <Text style={styles.emptyResults}>
+                    {directory.length === 0
+                      ? 'ETF listings are not available.'
+                      : 'No ETFs match that search.'}
+                  </Text>
+                }
+                renderItem={({ item }) => {
+                  const selected = draftSymbols.has(item.symbol);
+                  return (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      onPress={() => toggleFund(item)}
+                      style={({ pressed }) => [
+                        styles.fundOption,
+                        selected && styles.fundOptionSelected,
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <View style={styles.fundOptionText}>
+                        <Text style={styles.optionSymbol}>{item.symbol}</Text>
+                        <Text style={styles.optionName} numberOfLines={2}>
+                          {item.name}
+                        </Text>
+                      </View>
+                      <View style={[styles.checkMark, selected && styles.checkMarkSelected]}>
+                        {selected && <Text style={styles.checkMarkText}>✓</Text>}
+                      </View>
+                    </Pressable>
+                  );
+                }}
+              />
+            )}
+
+            {selectionError && <Text style={styles.selectionError}>{selectionError}</Text>}
+            <View style={styles.pickerFooter}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setPickerVisible(false)}
+                style={({ pressed }) => [styles.cancelButton, pressed && styles.pressed]}
+              >
+                <Text style={styles.cancelButtonText}>CANCEL</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={applySelection}
+                disabled={directoryLoading || directory.length === 0}
+                style={({ pressed }) => [
+                  styles.applyButton,
+                  (pressed || directoryLoading || directory.length === 0) && styles.pressed,
+                ]}
+              >
+                <Text style={styles.applyButtonText}>
+                  SHOW {draftSymbols.size} {draftSymbols.size === 1 ? 'ETF' : 'ETFs'}
+                </Text>
+              </Pressable>
+            </View>
+          </KeyboardAvoidingView>
+        </SafeAreaView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -443,6 +773,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 4,
   },
+  watchlistActions: {
+    alignItems: 'flex-end',
+    gap: 7,
+  },
+  manageButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 12,
+    backgroundColor: '#E4EEE6',
+  },
+  manageButtonText: {
+    color: '#276343',
+    fontSize: 9,
+    letterSpacing: 0.8,
+    fontWeight: '800',
+  },
   fundCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 19,
@@ -485,11 +831,6 @@ const styles = StyleSheet.create({
     color: '#26362F',
     fontSize: 15,
     fontWeight: '700',
-  },
-  fundDescription: {
-    color: '#808C84',
-    fontSize: 10,
-    marginTop: 3,
   },
   ticker: {
     color: '#728078',
@@ -627,6 +968,27 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     marginBottom: 14,
   },
+  emptyWatchlist: {
+    alignItems: 'center',
+    padding: 24,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 17,
+    borderWidth: 1,
+    borderColor: '#E8ECE6',
+    marginBottom: 14,
+  },
+  emptyTitle: {
+    color: '#26362F',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  emptyText: {
+    color: '#808C84',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginTop: 6,
+  },
   errorTitle: {
     color: '#8E4038',
     fontSize: 14,
@@ -728,5 +1090,246 @@ const styles = StyleSheet.create({
     color: '#9AA49D',
     fontSize: 9,
     marginTop: 7,
+  },
+  pickerSafeArea: {
+    flex: 1,
+    backgroundColor: '#F3F5F1',
+  },
+  pickerContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 15,
+  },
+  pickerEyebrow: {
+    color: '#718078',
+    fontSize: 9,
+    letterSpacing: 1.6,
+    fontWeight: '700',
+    marginBottom: 5,
+  },
+  pickerTitle: {
+    color: '#1F3029',
+    fontSize: 24,
+    letterSpacing: -0.5,
+    fontWeight: '700',
+  },
+  closeButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#E7ECE6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    color: '#53655A',
+    fontSize: 25,
+    lineHeight: 29,
+    fontWeight: '400',
+  },
+  pickerSubtitle: {
+    color: '#76847A',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 8,
+  },
+  searchBox: {
+    height: 47,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 17,
+    paddingHorizontal: 13,
+    borderWidth: 1,
+    borderColor: '#E0E7DF',
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+  },
+  searchIcon: {
+    color: '#75877A',
+    fontSize: 22,
+    lineHeight: 25,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#26362F',
+    fontSize: 13,
+    paddingVertical: 0,
+  },
+  clearSearch: {
+    width: 28,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearSearchText: {
+    color: '#78867B',
+    fontSize: 20,
+  },
+  pickerListHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 17,
+    marginBottom: 8,
+  },
+  pickerListCount: {
+    color: '#7C8980',
+    fontSize: 9,
+    letterSpacing: 0.9,
+    fontWeight: '700',
+  },
+  reloadText: {
+    color: '#287351',
+    fontSize: 9,
+    letterSpacing: 0.8,
+    fontWeight: '700',
+  },
+  disabledText: {
+    opacity: 0.45,
+  },
+  pickerList: {
+    paddingBottom: 12,
+  },
+  fundOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 63,
+    paddingHorizontal: 13,
+    paddingVertical: 9,
+    marginBottom: 7,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#E7ECE6',
+    backgroundColor: '#FFFFFF',
+  },
+  fundOptionSelected: {
+    borderColor: '#9FCBB0',
+    backgroundColor: '#F0F7F1',
+  },
+  fundOptionText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  optionSymbol: {
+    color: '#263B30',
+    fontSize: 12,
+    letterSpacing: 0.7,
+    fontWeight: '800',
+  },
+  optionName: {
+    color: '#77857B',
+    fontSize: 10,
+    lineHeight: 14,
+    marginTop: 3,
+  },
+  checkMark: {
+    width: 23,
+    height: 23,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#CCD8CE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkMarkSelected: {
+    backgroundColor: '#287351',
+    borderColor: '#287351',
+  },
+  checkMarkText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  directoryMessage: {
+    flex: 1,
+    minHeight: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+  },
+  directoryMessageTitle: {
+    color: '#385247',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 13,
+  },
+  directoryMessageBody: {
+    color: '#87938A',
+    fontSize: 11,
+    marginTop: 5,
+  },
+  retryButton: {
+    backgroundColor: '#E2EFE5',
+    paddingHorizontal: 15,
+    paddingVertical: 9,
+    borderRadius: 12,
+    marginTop: 14,
+  },
+  retryButtonText: {
+    color: '#276343',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  emptyResultsContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 25,
+  },
+  emptyResults: {
+    color: '#849087',
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  selectionError: {
+    color: '#A54D42',
+    textAlign: 'center',
+    fontSize: 11,
+    marginTop: 6,
+  },
+  pickerFooter: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingTop: 10,
+    paddingBottom: 10,
+    backgroundColor: '#F3F5F1',
+  },
+  cancelButton: {
+    flex: 1,
+    height: 47,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DDE4DD',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelButtonText: {
+    color: '#65766A',
+    fontSize: 10,
+    letterSpacing: 0.9,
+    fontWeight: '800',
+  },
+  applyButton: {
+    flex: 1.5,
+    height: 47,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    backgroundColor: '#176B52',
+  },
+  applyButtonText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    letterSpacing: 0.8,
+    fontWeight: '800',
   },
 });
