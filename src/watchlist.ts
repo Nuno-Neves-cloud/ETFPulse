@@ -4,11 +4,31 @@ import { ETF } from './marketData';
 export const MAX_SELECTED_ETFS = 20;
 
 export const DEFAULT_FUNDS: ETF[] = [
-  { symbol: 'SPY', name: 'SPDR S&P 500 ETF Trust' },
-  { symbol: 'EEM', name: 'iShares MSCI Emerging Markets ETF' },
+  {
+    symbol: 'SXR8.DE',
+    ticker: 'SXR8',
+    isin: 'IE00B5BMR087',
+    name: 'iShares Core S&P 500 UCITS ETF USD (Acc)',
+    issuer: 'iShares',
+    ucits: true,
+    distributionPolicy: 'Accumulating',
+    fundCurrency: 'USD',
+    tradingCurrency: 'EUR',
+  },
+  {
+    symbol: 'EUNM.DE',
+    ticker: 'EUNM',
+    isin: 'IE00B4L5YC18',
+    name: 'iShares MSCI Emerging Markets UCITS ETF (Acc)',
+    issuer: 'iShares',
+    ucits: true,
+    distributionPolicy: 'Accumulating',
+    fundCurrency: 'USD',
+    tradingCurrency: 'EUR',
+  },
 ];
 
-const WATCHLIST_STORAGE_KEY = '@daymark/selected-etfs-v1';
+const WATCHLIST_STORAGE_KEY = '@daymark/selected-etfs-europe-v2';
 
 export async function loadSavedFunds(): Promise<ETF[]> {
   const savedValue = await AsyncStorage.getItem(WATCHLIST_STORAGE_KEY);

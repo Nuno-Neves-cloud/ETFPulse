@@ -22,6 +22,7 @@ import {
   formatPrice,
   formatReturn,
   getScoreLabel,
+  resolveYahooListing,
 } from './src/marketData';
 import {
   DEFAULT_FUNDS,
@@ -66,7 +67,13 @@ async function requestSnapshots(funds: ETF[]): Promise<{
   return { snapshots, errors };
 }
 
-function Trend({ item }: { item: MarketSnapshot['returns'][number] }) {
+function Trend({
+  item,
+  currency,
+}: {
+  item: MarketSnapshot['returns'][number];
+  currency: string;
+}) {
   const positive = item.value !== null && item.value >= 0;
   return (
     <View>
@@ -75,7 +82,7 @@ function Trend({ item }: { item: MarketSnapshot['returns'][number] }) {
       </Text>
       {item.previousClose !== null && (
         <Text style={styles.trendReference}>
-          {formatPrice(item.previousClose)} · {item.previousDateLabel}
+          {formatPrice(item.previousClose, currency)} · {item.previousDateLabel}
         </Text>
       )}
     </View>
@@ -102,7 +109,21 @@ function FundCard({
             <Text style={styles.fundName} numberOfLines={2}>
               {fund.name}
             </Text>
-            <Text style={styles.fundDetails}>{fund.symbol} · U.S.-listed · USD</Text>
+            <Text style={styles.fundDetails}>
+              {[
+                fund.symbol,
+                fund.issuer,
+                fund.ucits ? 'UCITS' : null,
+                fund.distributionPolicy === 'Accumulating'
+                  ? 'Acc'
+                  : fund.distributionPolicy === 'Distributing'
+                    ? 'Dist'
+                    : null,
+                snapshot?.currency ?? fund.tradingCurrency,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </Text>
           </View>
         </View>
       </View>
@@ -110,7 +131,7 @@ function FundCard({
       {snapshot ? (
         <>
           <View style={styles.priceRow}>
-            <Text style={styles.price}>{formatPrice(snapshot.latestClose)}</Text>
+            <Text style={styles.price}>{formatPrice(snapshot.latestClose, snapshot.currency)}</Text>
             <View
               style={[
                 styles.scoreBadge,
@@ -139,7 +160,7 @@ function FundCard({
                 <Text style={styles.trendPeriod}>
                   {item.days}D · {item.previousDateLabel}
                 </Text>
-                <Trend item={item} />
+                <Trend item={item} currency={snapshot.currency} />
               </View>
             ))}
           </View>
@@ -173,7 +194,10 @@ export default function App() {
   const [searchText, setSearchText] = useState('');
   const [draftSymbols, setDraftSymbols] = useState<Set<string>>(new Set());
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [selectionSaving, setSelectionSaving] = useState(false);
   const priceRequestId = useRef(0);
+
+  const getFundKey = (fund: ETF) => fund.isin ?? fund.symbol;
 
   const loadPrices = useCallback(async () => {
     const requestId = ++priceRequestId.current;
@@ -242,7 +266,7 @@ export default function App() {
       .catch((error: unknown) => {
         if (active) {
           setDirectoryError(
-            error instanceof Error ? error.message : 'Could not load the Nasdaq ETF directory.',
+            error instanceof Error ? error.message : 'Could not load the European ETF directory.',
           );
         }
       })
@@ -255,7 +279,7 @@ export default function App() {
   }, [directory.length, pickerVisible]);
 
   const openPicker = () => {
-    setDraftSymbols(new Set(selectedFunds.map((fund) => fund.symbol)));
+    setDraftSymbols(new Set(selectedFunds.map(getFundKey)));
     setSearchText('');
     setSelectionError(null);
     setPickerVisible(true);
@@ -264,23 +288,36 @@ export default function App() {
   const toggleFund = (fund: ETF) => {
     setSelectionError(null);
     const next = new Set(draftSymbols);
-    if (next.has(fund.symbol)) {
-      next.delete(fund.symbol);
+    const key = getFundKey(fund);
+    if (next.has(key)) {
+      next.delete(key);
     } else if (next.size >= MAX_SELECTED_ETFS) {
       setSelectionError(`You can select up to ${MAX_SELECTED_ETFS} ETFs.`);
       return;
     } else {
-      next.add(fund.symbol);
+      next.add(key);
     }
     setDraftSymbols(next);
   };
 
   const applySelection = async () => {
-    const fundsBySymbol = new Map(directory.map((fund) => [fund.symbol, fund]));
-    const funds = [...draftSymbols]
-      .map((symbol) => fundsBySymbol.get(symbol) ?? selectedFunds.find((fund) => fund.symbol === symbol))
+    const fundsByISIN = new Map<string, ETF>();
+    [...directory, ...selectedFunds].forEach((fund) => {
+      if (fund.isin) fundsByISIN.set(fund.isin, fund);
+    });
+    const selected = [...draftSymbols]
+      .map((key) => fundsByISIN.get(key) ?? selectedFunds.find((fund) => getFundKey(fund) === key))
       .filter((fund): fund is ETF => fund !== undefined);
+    setSelectionSaving(true);
+    setSelectionError(null);
     try {
+      const funds: ETF[] = [];
+      for (let index = 0; index < selected.length; index += 4) {
+        const batch = await Promise.all(
+          selected.slice(index, index + 4).map(resolveYahooListing),
+        );
+        funds.push(...batch);
+      }
       await saveSelectedFunds(funds);
       setSelectedFunds(funds);
       setPreferencesError(null);
@@ -290,6 +327,8 @@ export default function App() {
       setSelectionError(
         error instanceof Error ? error.message : 'Could not save your ETF selections.',
       );
+    } finally {
+      setSelectionSaving(false);
     }
   };
 
@@ -304,7 +343,7 @@ export default function App() {
       setDirectory(funds);
     } catch (error) {
       setDirectoryError(
-        error instanceof Error ? error.message : 'Could not refresh the Nasdaq ETF directory.',
+        error instanceof Error ? error.message : 'Could not refresh the European ETF directory.',
       );
     } finally {
       setDirectoryLoading(false);
@@ -316,6 +355,9 @@ export default function App() {
     ? directory.filter(
         (fund) =>
           fund.symbol.toLowerCase().includes(normalizedSearch) ||
+          fund.ticker?.toLowerCase().includes(normalizedSearch) ||
+          fund.isin?.toLowerCase().includes(normalizedSearch) ||
+          fund.issuer?.toLowerCase().includes(normalizedSearch) ||
           fund.name.toLowerCase().includes(normalizedSearch),
       )
     : directory;
@@ -454,7 +496,7 @@ export default function App() {
           </View>
 
           <View style={styles.footer}>
-            <Text style={styles.footerLabel}>DATA: NASDAQ · DAILY CLOSING PRICES</Text>
+            <Text style={styles.footerLabel}>DATA: JUSTETF · YAHOO FINANCE · DAILY CLOSES</Text>
             <Text style={styles.footerText}>
               Prices may be delayed. This score is a historical price signal, not personalized
               financial advice or a prediction of future returns.
@@ -481,7 +523,7 @@ export default function App() {
           >
             <View style={styles.pickerHeader}>
               <View>
-                <Text style={styles.pickerEyebrow}>NASDAQ ETF DIRECTORY</Text>
+                <Text style={styles.pickerEyebrow}>EUROPEAN EQUITY ETFs · JUSTETF</Text>
                 <Text style={styles.pickerTitle}>Choose your ETFs</Text>
               </View>
               <Pressable
@@ -495,8 +537,8 @@ export default function App() {
             </View>
 
             <Text style={styles.pickerSubtitle}>
-              Search {directory.length > 0 ? directory.length.toLocaleString() : 'all'} ETFs by name
-              or ticker. Select up to {MAX_SELECTED_ETFS}.
+              Search {directory.length > 0 ? directory.length.toLocaleString() : 'European'} ETFs by
+              name, ticker or ISIN. Select up to {MAX_SELECTED_ETFS}.
             </Text>
 
             <View style={styles.searchBox}>
@@ -504,7 +546,7 @@ export default function App() {
               <TextInput
                 value={searchText}
                 onChangeText={setSearchText}
-                placeholder="Search ETFs or symbols"
+                placeholder="Search ETFs, symbols or ISIN"
                 placeholderTextColor="#99A49C"
                 style={styles.searchInput}
                 autoCapitalize="none"
@@ -563,7 +605,7 @@ export default function App() {
             ) : (
               <FlatList
                 data={filteredFunds}
-                keyExtractor={(fund) => fund.symbol}
+                keyExtractor={(fund) => fund.isin ?? fund.symbol}
                 keyboardShouldPersistTaps="handled"
                 initialNumToRender={16}
                 maxToRenderPerBatch={20}
@@ -579,7 +621,7 @@ export default function App() {
                   </Text>
                 }
                 renderItem={({ item }) => {
-                  const selected = draftSymbols.has(item.symbol);
+                  const selected = draftSymbols.has(getFundKey(item));
                   return (
                     <Pressable
                       accessibilityRole="button"
@@ -596,7 +638,19 @@ export default function App() {
                           {item.name}
                         </Text>
                         <Text style={styles.optionSymbol}>
-                          {item.symbol} · U.S.-listed · USD
+                          {[
+                            item.ticker,
+                            item.issuer,
+                            item.ucits ? 'UCITS' : null,
+                            item.distributionPolicy === 'Accumulating'
+                              ? 'Acc'
+                              : item.distributionPolicy === 'Distributing'
+                                ? 'Dist'
+                                : null,
+                            item.fundCurrency ? `${item.fundCurrency} base` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(' · ')}
                         </Text>
                       </View>
                       <View style={[styles.checkMark, selected && styles.checkMarkSelected]}>
@@ -620,14 +674,17 @@ export default function App() {
               <Pressable
                 accessibilityRole="button"
                 onPress={applySelection}
-                disabled={directoryLoading || directory.length === 0}
+                disabled={directoryLoading || selectionSaving || directory.length === 0}
                 style={({ pressed }) => [
                   styles.applyButton,
-                  (pressed || directoryLoading || directory.length === 0) && styles.pressed,
+                  (pressed || directoryLoading || selectionSaving || directory.length === 0) &&
+                    styles.pressed,
                 ]}
               >
                 <Text style={styles.applyButtonText}>
-                  SHOW {draftSymbols.size} {draftSymbols.size === 1 ? 'ETF' : 'ETFs'}
+                  {selectionSaving
+                    ? 'CHECKING LISTINGS...'
+                    : `SHOW ${draftSymbols.size} ${draftSymbols.size === 1 ? 'ETF' : 'ETFs'}`}
                 </Text>
               </Pressable>
             </View>

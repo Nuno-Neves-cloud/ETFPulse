@@ -1,9 +1,9 @@
-# Daymark
+# ETFPulse
 
-Daymark is a cross-platform Expo app that compares recent closing prices for:
+ETFPulse is a cross-platform Expo app that compares recent closing prices for:
 
-- **SPY** — an ETF tracking the S&P 500
-- **EEM** — an ETF tracking emerging markets
+- **SXR8.DE** — iShares Core S&P 500 UCITS ETF USD (Acc), listed on Xetra
+- **EUNM.DE** — iShares MSCI Emerging Markets UCITS ETF (Acc), listed on Xetra
 
 It shows the latest available daily close, earlier closing prices and percentage changes over 1, 5, and 20 trading days, and a score from 1 to 5. The score uses only price history:
 
@@ -16,7 +16,7 @@ It shows the latest available daily close, earlier closing prices and percentage
    - **4:** greater than +0.5% and less than +2%
    - **5:** +2% or more
 
-Daily price history is requested from Nasdaq's public ETF historical-prices endpoint. Prices are closing values, not a live quote. The app reports data errors instead of inventing a price or score. Use **Edit list** on the market snapshot to search Nasdaq's ETF directory by ticker or name, choose up to 20 funds, and show them together. The picker shows each fund name first, followed by its ticker and U.S. dollar listing details. European listings and fund attributes such as UCITS status or share class are not available in this directory. SPY and EEM are selected initially; the watchlist is saved on the device. Nasdaq's directory is cached for 24 hours and can be refreshed from the picker.
+The app loads European equity ETF names, ISINs, issuer names, distribution policy and fund currencies from the justETF ETF screener. It uses Yahoo Finance's chart endpoint for exchange-listed daily closing prices and resolves each selected fund to a European ticker such as `SXR8.DE`. Exchange prices are shown in their trading currency; the fund's base currency may differ. Directory results are cached for 24 hours. Use **Edit list** to search by fund name, ticker or ISIN and select up to 20 funds. SXR8.DE and EUNM.DE are selected initially, and the watchlist is saved on the device. Price history is closing-price data, not a live quote; the score uses only that history.
 
 ## Run the app during development
 
@@ -29,7 +29,7 @@ This starts the development server and is only needed while developing. The inst
 
 ## Build a standalone app
 
-Standalone builds include the React Native app in a normal installable app package. After installation, launch Daymark from the phone like any other app. It fetches prices directly from Nasdaq, so the phone needs an internet connection, but does not need a development server.
+Standalone builds include the React Native app in a normal installable app package. After installation, launch ETFPulse from the phone like any other app. It fetches ETF directory data from justETF and price history from Yahoo Finance, so the phone needs an internet connection, but does not need a development server.
 
 ### Build and run from Xcode
 
@@ -44,9 +44,9 @@ On a Mac with the full Xcode app installed:
    This runs Expo Prebuild to generate `ios/` and install iOS pods. If CocoaPods is not installed, install it first (for example, with `brew install cocoapods`). The generated folder is intentionally ignored by Git; rerun Prebuild after changing native app configuration or dependencies.
 3. Open the generated CocoaPods workspace:
    ```sh
-   open ios/Daymark.xcworkspace
+   open ios/ETFPulse.xcworkspace
    ```
-4. In Xcode, select the **Daymark** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The configured bundle identifier is `com.marketinvestor.daymark`; change it in `app.json` if you need an identifier you own.
+4. In Xcode, select the **ETFPulse** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The configured bundle identifier is `com.marketinvestor.daymark`; change it in `app.json` if you need an identifier you own.
 5. Connect and select your iPhone as the run destination, then choose **Product → Run** to build, sign, and install.
 
 Xcode's normal Debug run uses Metro to serve JavaScript. To install a build that runs without Metro, choose the app's **Release** configuration when building. For an installable release/archive on a physical iPhone, Apple signing and provisioning apply; App Store or TestFlight distribution requires Apple Developer Program membership. A free Personal Team is suitable for on-device development, but its provisioning is limited and must be renewed periodically.
@@ -85,6 +85,6 @@ npx eas-cli@latest build --platform ios --profile simulator --local
 
 Local iOS builds require macOS and Xcode. To publish to the stores, use the `production` profile. Before publishing, replace the example app identifiers in `app.json` with identifiers you control.
 
-EAS is used here to compile and sign the installable package; it is not required to run the installed app. The app includes the React Native runtime and requests price data directly from Nasdaq.
+EAS is used here to compile and sign the installable package; it is not required to run the installed app. The app includes the React Native runtime and requests ETF data directly from justETF and Yahoo Finance.
 
 The score is a simple historical price signal, not personalized financial advice or a prediction of future returns.
