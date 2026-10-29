@@ -7,6 +7,9 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
+      "infoPlist": {
+        "CFBundleDisplayName": "ETFPulse"
+      },
       "bundleIdentifier": "com.marketinvestor.daymark",
       "supportsTablet": true
     },
