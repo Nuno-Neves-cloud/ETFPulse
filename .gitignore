@@ -13,10 +13,13 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
 *.mobileprovision
+credentials.json
+/credentials/
 
 # Metro
 .metro-health-check*
@@ -30,8 +33,10 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
+# environment files (commit only explicitly reviewed examples)
+.env
+.env.*
+!.env.example
 
 # typescript
 *.tsbuildinfo

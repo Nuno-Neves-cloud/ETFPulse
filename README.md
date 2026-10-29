@@ -18,10 +18,12 @@ It shows the latest available daily close, earlier closing prices and percentage
 
 The app loads European equity ETF names, ISINs, issuer names, distribution policy and fund currencies from the justETF ETF screener. It uses Yahoo Finance's chart endpoint for exchange-listed daily closing prices and resolves each selected fund to a European ticker such as `SXR8.DE`. Exchange prices are shown in their trading currency; the fund's base currency may differ. Directory results are cached for 24 hours. Use **Edit list** to search by fund name, ticker or ISIN and select up to 20 funds. SXR8.DE and EUNM.DE are selected initially, and the watchlist is saved on the device. Price history is closing-price data, not a live quote; the score uses only that history.
 
+The app is not affiliated with justETF or Yahoo Finance. It retrieves data from their website endpoints; the justETF screener interface is not a documented public API, and either provider may change access, formats, or rate limits. Data may be delayed or unavailable. The score is a historical price signal, not investment advice.
+
 ## Run the app during development
 
 ```sh
-npm install
+npm ci
 npm start
 ```
 
@@ -46,7 +48,7 @@ On a Mac with the full Xcode app installed:
    ```sh
    open ios/ETFPulse.xcworkspace
    ```
-4. In Xcode, select the **ETFPulse** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The configured bundle identifier is `com.marketinvestor.daymark`; change it in `app.json` if you need an identifier you own.
+4. In Xcode, select the **ETFPulse** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The sample iOS bundle identifier is `com.marketinvestor.daymark`. Change it in `app.json` to a unique identifier you control before distributing your own build. Keep the existing identifier if you need to update an installation signed with it.
 5. Connect and select your iPhone as the run destination, then choose **Product → Run** to build, sign, and install.
 
 Xcode's normal Debug run uses Metro to serve JavaScript. To install a build that runs without Metro, choose the app's **Release** configuration when building. For an installable release/archive on a physical iPhone, Apple signing and provisioning apply; App Store or TestFlight distribution requires Apple Developer Program membership. A free Personal Team is suitable for on-device development, but its provisioning is limited and must be renewed periodically.
@@ -83,8 +85,12 @@ Installing on a physical iPhone requires Apple signing credentials and an eligib
 npx eas-cli@latest build --platform ios --profile simulator --local
 ```
 
-Local iOS builds require macOS and Xcode. To publish to the stores, use the `production` profile. Before publishing, replace the example app identifiers in `app.json` with identifiers you control.
+Local iOS builds require macOS and Xcode. To publish to the stores, use the `production` profile. Before publishing, replace the sample iOS bundle identifier and Android package in `app.json` with identifiers you control. Keep them unchanged if you need to update an existing installation.
 
 EAS is used here to compile and sign the installable package; it is not required to run the installed app. The app includes the React Native runtime and requests ETF data directly from justETF and Yahoo Finance.
 
 The score is a simple historical price signal, not personalized financial advice or a prediction of future returns.
+
+## License
+
+This project is distributed under the MIT License. See [LICENSE](./LICENSE).
