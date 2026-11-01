@@ -1,96 +1,61 @@
 # ETFPulse
 
-ETFPulse is a cross-platform Expo app that compares recent closing prices for:
+ETFPulse is a cross-platform app for checking recent closing prices for European ETFs. It shows each selected fund's latest daily close, price changes over 1, 5, and 20 trading days, and a simple price-momentum score. You can search for funds by name, ticker, or ISIN and save a watchlist of up to 20 funds on your device. SXR8.DE and EUNM.DE are selected by default.
 
-- **SXR8.DE** — iShares Core S&P 500 UCITS ETF USD (Acc), listed on Xetra
-- **EUNM.DE** — iShares MSCI Emerging Markets UCITS ETF (Acc), listed on Xetra
+## How the score works
 
-It shows the latest available daily close, earlier closing prices and percentage changes over 1, 5, and 20 trading days, and a score from 1 to 5. The score uses only price history:
+The score combines the percentage price changes over 1, 5, and 20 trading days, weighted at 20%, 30%, and 50%, respectively. The weighted change maps to a score from 1 to 5:
 
-1. Calculate the percentage price change over 1, 5, and 20 trading days.
-2. Combine those changes with weights of 20%, 30%, and 50%.
-3. Map the weighted change to a score:
-   - **1:** −2% or less
-   - **2:** greater than −2% and less than −0.5%
-   - **3:** −0.5% through +0.5%
-   - **4:** greater than +0.5% and less than +2%
-   - **5:** +2% or more
+| Score | Weighted price change |
+|---|---|
+| 1 | −2% or less |
+| 2 | Greater than −2% and less than −0.5% |
+| 3 | −0.5% through +0.5% |
+| 4 | Greater than +0.5% and less than +2% |
+| 5 | +2% or more |
 
-The app loads European equity ETF names, ISINs, issuer names, distribution policy and fund currencies from the justETF ETF screener. It uses Yahoo Finance's chart endpoint for exchange-listed daily closing prices and resolves each selected fund to a European ticker such as `SXR8.DE`. Exchange prices are shown in their trading currency; the fund's base currency may differ. Directory results are cached for 24 hours. Use **Edit list** to search by fund name, ticker or ISIN and select up to 20 funds. SXR8.DE and EUNM.DE are selected initially, and the watchlist is saved on the device. Price history is closing-price data, not a live quote; the score uses only that history.
+ETF directory details come from the justETF screener, while Yahoo Finance is used to find exchange listings and retrieve daily closing prices. Prices are shown in the exchange trading currency, which may differ from the fund's base currency. Data may be delayed or unavailable, and the providers may change their endpoints. This score reflects historical prices only; it is not investment advice or a prediction of future returns.
 
-The app is not affiliated with justETF or Yahoo Finance. It retrieves data from their website endpoints; the justETF screener interface is not a documented public API, and either provider may change access, formats, or rate limits. Data may be delayed or unavailable. The score is a historical price signal, not investment advice.
+## Standalone builds
 
-## Run the app during development
+Build an installable ETFPulse app with EAS Build. A standalone app runs without Expo Go or a development server. It still needs an internet connection to load ETF and price data.
+
+## One-time setup
+
+Install the project dependencies, sign in to an Expo account, and configure EAS for this project:
 
 ```sh
 npm ci
-npm start
+npx eas-cli@latest login
+npx eas-cli@latest build:configure
 ```
 
-This starts the development server and is only needed while developing. The installed app does not need Expo Go or this server to run.
+## Android
 
-## Build a standalone app
+Build an installable APK with the `preview` profile:
 
-Standalone builds include the React Native app in a normal installable app package. After installation, launch ETFPulse from the phone like any other app. It fetches ETF directory data from justETF and price history from Yahoo Finance, so the phone needs an internet connection, but does not need a development server.
+```sh
+npx eas-cli@latest build --platform android --profile preview
+```
 
-### Build and run from Xcode
+When the build finishes, open its EAS build link on the Android device and install the APK. The device may ask you to allow installation from that source.
 
-On a Mac with the full Xcode app installed:
+## iPhone
 
-1. Install Xcode from the Mac App Store, open it once, accept its license, and install its iOS platform components. In Xcode, add your Apple Account under **Settings → Accounts**. Under **Settings → Locations → Command Line Tools**, select the installed Xcode version.
-2. From the project folder, install JavaScript dependencies and generate the native iOS project:
-   ```sh
-   npm install
-   npm run prebuild:ios
-   ```
-   This runs Expo Prebuild to generate `ios/` and install iOS pods. If CocoaPods is not installed, install it first (for example, with `brew install cocoapods`). The generated folder is intentionally ignored by Git; rerun Prebuild after changing native app configuration or dependencies.
-3. Open the generated CocoaPods workspace:
-   ```sh
-   open ios/ETFPulse.xcworkspace
-   ```
-4. In Xcode, select the **ETFPulse** project and app target, then **Signing & Capabilities**. Enable **Automatically manage signing** and select your **Team**. The sample iOS bundle identifier is `com.marketinvestor.daymark`. Change it in `app.json` to a unique identifier you control before distributing your own build. Keep the existing identifier if you need to update an installation signed with it.
-5. Connect and select your iPhone as the run destination, then choose **Product → Run** to build, sign, and install.
-
-Xcode's normal Debug run uses Metro to serve JavaScript. To install a build that runs without Metro, choose the app's **Release** configuration when building. For an installable release/archive on a physical iPhone, Apple signing and provisioning apply; App Store or TestFlight distribution requires Apple Developer Program membership. A free Personal Team is suitable for on-device development, but its provisioning is limited and must be renewed periodically.
-
-If Prebuild reports that CocoaPods or Xcode is missing, install the full Xcode app and CocoaPods, then rerun `npm run prebuild:ios`.
-
-### Android phone (APK)
-
-1. Create a free account at [expo.dev](https://expo.dev/signup) and sign in:
-   ```sh
-   npx eas-cli@latest login
-   ```
-2. Connect this project to your Expo account (one-time):
-   ```sh
-   npx eas-cli@latest build:configure
-   ```
-3. Build the standalone APK:
-   ```sh
-   npx eas-cli@latest build --platform android --profile preview
-   ```
-4. Open the build link on your Android phone and install the APK. Android may ask you to allow installs from that source.
-
-### iPhone
-
-Build and install a standalone iPhone app with:
+For an internal iPhone build, run:
 
 ```sh
 npx eas-cli@latest build --platform ios --profile preview
 ```
 
-Installing on a physical iPhone requires Apple signing credentials and an eligible provisioning method; EAS will guide you through the signing setup. Apple restricts direct device installation, and distribution through the App Store requires Apple Developer Program membership. For iOS Simulator instead, build a simulator app:
+Follow EAS prompts to configure Apple signing. The internal iOS build uses ad hoc provisioning and can only be installed on devices included in its provisioning profile. Register any test device with EAS and rebuild if needed. Open the build link on a registered iPhone to install it.
+
+## Store distribution
+
+The `production` profile is configured for Android App Bundles and iOS store builds:
 
 ```sh
-npx eas-cli@latest build --platform ios --profile simulator --local
+npx eas-cli@latest build --platform all --profile production
 ```
 
-Local iOS builds require macOS and Xcode. To publish to the stores, use the `production` profile. Before publishing, replace the sample iOS bundle identifier and Android package in `app.json` with identifiers you control. Keep them unchanged if you need to update an existing installation.
-
-EAS is used here to compile and sign the installable package; it is not required to run the installed app. The app includes the React Native runtime and requests ETF data directly from justETF and Yahoo Finance.
-
-The score is a simple historical price signal, not personalized financial advice or a prediction of future returns.
-
-## License
-
-This project is distributed under the MIT License. See [LICENSE](./LICENSE).
+Store release requires the corresponding developer accounts, signing credentials, and store submission steps. Before distributing your own app, replace the sample iOS bundle identifier and Android package in `app.json` with identifiers you control. Keep them unchanged if you need to update an existing installation.

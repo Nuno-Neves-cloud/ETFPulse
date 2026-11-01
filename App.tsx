@@ -381,7 +381,7 @@ export default function App() {
           <View style={styles.topBar}>
             <View style={styles.brand}>
               <View style={styles.brandDot} />
-              <Text style={styles.brandName}>DAYMARK</Text>
+              <Text style={styles.brandName}>ETFPULSE</Text>
             </View>
             <Pressable
               accessibilityRole="button"
