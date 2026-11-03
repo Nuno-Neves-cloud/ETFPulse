@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import appConfig from './app.json';
 import {
   ActivityIndicator,
   FlatList,
@@ -506,6 +507,7 @@ export default function App() {
                 Checked {lastUpdated.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
               </Text>
             )}
+            <Text style={styles.footerVersion}>ETFPulse v{appConfig.expo.version}</Text>
           </View>
         </View>
       </ScrollView>
@@ -1146,6 +1148,11 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
   footerTimestamp: {
+    color: '#9AA49D',
+    fontSize: 9,
+    marginTop: 7,
+  },
+  footerVersion: {
     color: '#9AA49D',
     fontSize: 9,
     marginTop: 7,
