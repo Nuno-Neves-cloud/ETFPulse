@@ -72,9 +72,11 @@ export type MarketSnapshot = {
   latestDateLabel: string;
   returns: PeriodReturn[];
   score: number;
+  trendImproving: boolean;
 };
 
 const PERIODS = [1, 5, 20] as const;
+const MIN_TREND_IMPROVEMENT = 0.1;
 const JUSTETF_DIRECTORY_URL = 'https://www.justetf.com/en/search.html?assetClass=class-equity';
 const ETF_DIRECTORY_CACHE_KEY = '@daymark/european-equity-etf-directory-v1';
 const ETF_DIRECTORY_CACHE_MAX_AGE = 24 * 60 * 60 * 1000;
@@ -304,19 +306,30 @@ export async function fetchETFDirectory(
   return funds;
 }
 
-function calculateScore(returns: PeriodReturn[]): number | null {
+function calculateScore(
+  returns: PeriodReturn[],
+): { score: number; trendImproving: boolean } | null {
   if (returns.some((item) => item.value === null)) {
     return null;
   }
 
-  const weightedMomentum =
-    returns[0].value! * 0.2 + returns[1].value! * 0.3 + returns[2].value! * 0.5;
+  const [oneDay, fiveDay, twentyDay] = returns.map((item) => item.value!);
+  const weightedMomentum = oneDay * 0.2 + fiveDay * 0.3 + twentyDay * 0.5;
+  let score = 1;
+  if (weightedMomentum >= 2) score = 5;
+  else if (weightedMomentum > 0.5) score = 4;
+  else if (weightedMomentum >= -0.5) score = 3;
+  else if (weightedMomentum > -2) score = 2;
 
-  if (weightedMomentum >= 2) return 5;
-  if (weightedMomentum > 0.5) return 4;
-  if (weightedMomentum >= -0.5) return 3;
-  if (weightedMomentum > -2) return 2;
-  return 1;
+  const priorFifteenDayReturn =
+    (1 + twentyDay / 100) / (1 + fiveDay / 100) - 1;
+  const priorFiveDayEquivalent = (Math.pow(1 + priorFifteenDayReturn, 1 / 3) - 1) * 100;
+  const trendImproving = fiveDay - priorFiveDayEquivalent >= MIN_TREND_IMPROVEMENT;
+
+  return {
+    score: Math.min(5, score + (trendImproving ? 1 : 0)),
+    trendImproving,
+  };
 }
 
 function europeanSymbolRank(symbol: string): number {
@@ -436,8 +449,8 @@ export async function fetchMarketSnapshot(fund: ETF): Promise<MarketSnapshot> {
         : null,
     };
   });
-  const score = calculateScore(returns);
-  if (score === null) {
+  const calculation = calculateScore(returns);
+  if (calculation === null) {
     throw new Error('Not enough daily price history to calculate a 20-trading-day score.');
   }
 
@@ -451,7 +464,8 @@ export async function fetchMarketSnapshot(fund: ETF): Promise<MarketSnapshot> {
       true,
     ),
     returns,
-    score,
+    score: calculation.score,
+    trendImproving: calculation.trendImproving,
   };
 }
 
@@ -470,18 +484,22 @@ export function formatReturn(value: number | null): string {
   return `${sign}${value.toFixed(2)}%`;
 }
 
-export function getScoreLabel(score: number): string {
+export function getScoreLabel(score: number, trendImproving = false): string {
+  if (trendImproving) {
+    return 'Momentum improving · recent prices are outperforming their prior pace';
+  }
+
   switch (score) {
     case 1:
-      return 'Do not invest today · price trend is weak';
+      return 'Very weak · historical price momentum';
     case 2:
-      return 'Cautious · recent prices are trending lower';
+      return 'Weak · historical price momentum';
     case 3:
       return 'Mixed · no clear price direction';
     case 4:
       return 'Positive · recent prices are trending higher';
     case 5:
-      return 'Invest now · price trend is strong';
+      return 'Strong · positive historical momentum';
     default:
       return 'Price score unavailable';
   }
