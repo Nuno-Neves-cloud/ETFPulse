@@ -4,15 +4,17 @@ ETFPulse is a cross-platform app for checking recent closing prices for European
 
 ## How the score works
 
-The score combines the percentage price changes over 1, 5, and 20 trading days, weighted at 20%, 30%, and 50%, respectively. The weighted change maps to a score from 1 to 5:
+The base score combines the percentage price changes over 1, 5, and 20 trading days, weighted at 20%, 30%, and 50%, respectively. The weighted change maps to a score from 1 to 5:
 
-| Score | Weighted price change |
+| Base score | Weighted price change |
 |---|---|
 | 1 | −2% or less |
 | 2 | Greater than −2% and less than −0.5% |
 | 3 | −0.5% through +0.5% |
 | 4 | Greater than +0.5% and less than +2% |
 | 5 | +2% or more |
+
+The score gains one point, up to 5, when the latest 5-trading-day return is at least 0.1 percentage points better than the 5-day-equivalent return implied by the preceding 15 trading days. This recognizes improving momentum, including a decline that is slowing; it does not mean the price has stopped falling.
 
 ETF directory details come from the justETF screener, while Yahoo Finance is used to find exchange listings and retrieve daily closing prices. Prices are shown in the exchange trading currency, which may differ from the fund's base currency. Data may be delayed or unavailable, and the providers may change their endpoints. This score reflects historical prices only; it is not investment advice or a prediction of future returns.
 
@@ -59,3 +61,10 @@ npx eas-cli@latest build --platform all --profile production
 ```
 
 Store release requires the corresponding developer accounts, signing credentials, and store submission steps. Before distributing your own app, replace the sample iOS bundle identifier and Android package in `app.json` with identifiers you control. Keep them unchanged if you need to update an existing installation.
+
+## Version history
+
+| Version | Changes |
+|---|---|
+| 1.0.1 | Improved momentum scoring to recognize when a price decline is slowing. |
+| 1.0.0 | Initial release. |

@@ -147,7 +147,9 @@ function FundCard({
             </View>
           </View>
           <Text style={styles.quoteDate}>Latest close · {snapshot.latestDateLabel}</Text>
-          <Text style={styles.signal}>{getScoreLabel(snapshot.score)}</Text>
+          <Text style={styles.signal}>
+            {getScoreLabel(snapshot.score, snapshot.trendImproving)}
+          </Text>
 
           <View style={styles.divider} />
           <View style={styles.performanceHeader}>
@@ -473,8 +475,11 @@ export default function App() {
               <Text style={styles.methodTitle}>How the score works</Text>
             </View>
             <Text style={styles.methodBody}>
-              The score blends price changes over 1, 5, and 20 trading days (20%, 30%, and 50%
-              weight). It uses price history only — no company, economic, or fund research.
+              The base score blends price changes over 1, 5, and 20 trading days (20%, 30%, and 50%
+              weight). It gains one point, up to 5, when the latest 5-day return is at least 0.1%
+              better than the prior 15-day pace converted to a 5-day return. This can recognize a
+              decline that is slowing. It uses price history only — no company, economic, or fund
+              research.
             </Text>
             <View style={styles.scale}>
               <View style={styles.scaleLine} />
